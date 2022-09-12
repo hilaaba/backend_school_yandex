@@ -2,7 +2,7 @@ from datetime import datetime, timedelta
 
 from django.conf import settings
 
-from .models import History, Item
+from .models import History, Item, FILE
 
 
 def get_or_none(model, *args, **kwargs):
@@ -54,7 +54,7 @@ def update_dates(affected_folders_ids, date):
 
 def update_sizes():
     def traverse_and_update(item, file_count=0, sum_size=0):
-        if item.type == 'FILE':
+        if item.type == FILE:
             size = item.size
             return size, 1
         else:
@@ -79,7 +79,7 @@ def update_sizes():
 
 def save_history(item_id):
     item = Item.objects.get(pk=item_id)
-    if item.type == 'FILE':
+    if item.type == FILE:
         values = {
             'url': item.url,
             'date': item.date,

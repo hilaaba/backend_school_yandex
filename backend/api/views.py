@@ -58,9 +58,11 @@ class ItemAPIView(APIView):
         for item_id in updated_or_added_ids:
             save_history(item_id)
         return Response(
-            {'code': HTTP_200_OK,
-             'message': "Import or update went successful"},
-            status=HTTP_200_OK
+            {
+                'code': HTTP_200_OK,
+                'message': "Import or update went successful"
+            },
+            status=HTTP_200_OK,
         )
 
 
@@ -98,7 +100,7 @@ def get_history(request, uuid):
     date_start = get_datetime_object(date_start)
     date_end = get_datetime_object(date_end)
 
-    queryset = item.history_set.all().filter(
+    queryset = item.histories.all().filter(
         date__range=(date_start, date_end)
     )
     serializer = HistorySerializer(queryset, many=True)

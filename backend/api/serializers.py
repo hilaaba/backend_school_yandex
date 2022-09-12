@@ -2,11 +2,11 @@ from rest_framework.exceptions import ValidationError
 from rest_framework.fields import DateTimeField, ListField
 from rest_framework.relations import PrimaryKeyRelatedField
 from rest_framework.serializers import (
-    CharField, ChoiceField, ModelSerializer, Serializer, SerializerMethodField,
-    UUIDField, IntegerField
+    CharField, ChoiceField, IntegerField, ModelSerializer, Serializer,
+    SerializerMethodField, UUIDField
 )
 
-from .models import CHOICES, History, Item
+from .models import CHOICES, FILE, History, Item
 from .services import get_or_none
 from .validators import validate_uuid
 
@@ -31,22 +31,9 @@ class ItemSerializer(ModelSerializer):
             raise ValidationError('Url must start with slash')
         return url
 
-    def validate_parent(self, parent_id):
-        if parent_id is None:
-            return parent_id
-        try:
-            parent = Item.objects.get(pk=parent_id)
-        except Item.DoesNotExist:
-            raise ValidationError('ParentId refers non-existing object')
-        try:
-            assert parent.type == 'FOLDER'
-        except AssertionError:
-            raise ValidationError('ParentId must refer folder object')
-        return parent_id
-
     def validate(self, data):
         try:
-            if data.get('type') == 'FILE':
+            if data.get('type') == FILE:
                 size = data.get('size')
                 assert isinstance(size, int) and size >= 0
             else:
@@ -56,23 +43,15 @@ class ItemSerializer(ModelSerializer):
         return data
 
     def get_children(self, obj):
-        if obj.type == 'FILE':
+        if obj.type == FILE:
             return None
-        return self.__class__(obj.item_set.all(), many=True).data
+        return self.__class__(obj.histories.all(), many=True).data
 
 
 class ItemRequest:
     def __init__(self, items, updateDate):
         self.items = updateDate
         self.items = items
-
-
-class ItemPostSerializer(Serializer):
-    type = ChoiceField(choices=CHOICES)
-    id = UUIDField()
-    parentId = CharField(default=None)
-    url = CharField(default=None)
-    size = IntegerField(default=None)
 
 
 class ItemImportRequestSerializer(Serializer):
@@ -98,7 +77,7 @@ class ItemImportRequestSerializer(Serializer):
 
 
 class HistorySerializer(ModelSerializer):
-    type = CharField(default='FILE')
+    type = CharField(default=FILE)
 
     class Meta:
         model = History

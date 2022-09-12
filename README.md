@@ -13,7 +13,6 @@
 Python 3.8  
 Django 2.2.19  
 Django REST Framework 3.13.1  
-Djoser 2.1.0  
 PostgreSQL 12  
 Docker 20.10.17
 Gunicorn 20.1.0  
@@ -27,7 +26,7 @@ git clone https://github.com/hilaaba/backend_school_yandex.git
 cd backend_school_yandex/infra
 ```
 
-Создать <code>.env</code> файл. Шаблон наполнения env-файла:
+Создать <code>.env</code> файл в папке infra. Шаблон наполнения env-файла:
 ```
 DB_ENGINE=django.db.backends.postgresql
 DB_NAME=postgres
@@ -35,6 +34,7 @@ POSTGRES_USER=postgres
 POSTGRES_PASSWORD=postgres
 DB_HOST=db
 DB_PORT=5432
+SECRET_KEY=KEY
 ```
 
 Запустить приложение в docker-контейнерах:
