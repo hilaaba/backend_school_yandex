@@ -1,22 +1,20 @@
-import json
-
 from django.core.exceptions import ValidationError
 from django.db import transaction
-from rest_framework.views import APIView
 from rest_framework.decorators import api_view
-from rest_framework.status import HTTP_200_OK, HTTP_400_BAD_REQUEST
-from rest_framework.response import Response
 from rest_framework.generics import get_object_or_404
+from rest_framework.response import Response
+from rest_framework.status import HTTP_200_OK, HTTP_400_BAD_REQUEST
+from rest_framework.views import APIView
 
 from .models import Item
-from .serializers import ItemSerializer, HistorySerializer
-from .services import (
-    create_item_instance, get_date_range,
-    get_datetime_object,
-    get_update_data, save_history, update_dates,
-    update_sizes,
+from .serializers import (
+    HistorySerializer, ItemImportRequestSerializer, ItemSerializer
 )
-from .validators import validate_all_params, validate_date, validate_uuid
+from .services import (
+    get_date_range, get_datetime_object, get_update_data, save_history,
+    update_dates, update_sizes
+)
+from .validators import validate_date, validate_uuid
 
 
 class ItemAPIView(APIView):
@@ -45,35 +43,25 @@ class ItemAPIView(APIView):
         item.delete()
         return Response({'code': HTTP_200_OK, 'message': 'Deleted'})
 
+    def post(self, request):
+        serializer = ItemImportRequestSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=HTTP_400_BAD_REQUEST)
+        serializer.save()
 
-@api_view(['POST'])
-@transaction.atomic
-def import_items(request):
-    request_body = json.loads(request.body.decode())
-    update_date = request_body['updateDate']
-    items = request_body['items']
+        update_date = request.data.get('updateDate')
+        items = request.data.get('items')
+        affected_folders_ids, updated_or_added_ids = get_update_data(items)
 
-    affected_folders_ids, updated_or_added_ids = get_update_data(items)
-
-    for item in items:
-        try:
-            validate_all_params(item, update_date)
-            item_instance = create_item_instance(item, update_date)
-        except ValidationError as e:
-            transaction.set_rollback(True)
-            return Response(
-                {'code': HTTP_400_BAD_REQUEST, 'message': e.message},
-                status=HTTP_400_BAD_REQUEST,
-            )
-        item_instance.save()
-
-    update_dates(affected_folders_ids, update_date)
-    update_sizes()
-    for item_id in updated_or_added_ids:
-        save_history(item_id)
-    return Response(
-        {'code': HTTP_200_OK, 'message': "Import or update went successful"},
-    )
+        update_dates(affected_folders_ids, update_date)
+        update_sizes()
+        for item_id in updated_or_added_ids:
+            save_history(item_id)
+        return Response(
+            {'code': HTTP_200_OK,
+             'message': "Import or update went successful"},
+            status=HTTP_200_OK
+        )
 
 
 @api_view(['GET'])
@@ -87,10 +75,8 @@ def get_updates(request):
             status=HTTP_400_BAD_REQUEST,
         )
     date_range = get_date_range(request_date)
-    serializer = ItemSerializer(
-        Item.objects.filter(date__range=date_range).filter(type='FILE'),
-        many=True,
-    )
+    queryset = Item.objects.filter(date__range=date_range).filter(type='FILE')
+    serializer = ItemSerializer(queryset, many=True)
     return Response({'items': serializer.data})
 
 
@@ -112,8 +98,8 @@ def get_history(request, uuid):
     date_start = get_datetime_object(date_start)
     date_end = get_datetime_object(date_end)
 
-    serializer = HistorySerializer(
-        item.history_set.all().filter(date__range=(date_start, date_end)),
-        many=True,
+    queryset = item.history_set.all().filter(
+        date__range=(date_start, date_end)
     )
+    serializer = HistorySerializer(queryset, many=True)
     return Response({'items': serializer.data})

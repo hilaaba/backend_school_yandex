@@ -1,7 +1,8 @@
 from datetime import datetime, timedelta
 
-from .models import History, Item
 from django.conf import settings
+
+from .models import History, Item
 
 
 def get_or_none(model, *args, **kwargs):
@@ -19,22 +20,6 @@ def get_date_range(request_date):
 
 def get_datetime_object(date_str):
     return datetime.strptime(date_str, settings.DATE_TIME_FORMAT)
-
-
-def create_item_instance(item, date):
-    parent = item.get('parentId')
-    if parent:
-        parent = Item.objects.get(pk=parent)
-    values = {
-        'pk': item.get('id'),
-        'url': item.get('url'),
-        'size': item.get('size'),
-        'date': date,
-        'parent': parent,
-        'type': item['type'].upper(),
-    }
-    item = Item(**values)
-    return item
 
 
 def get_update_data(items):

@@ -1,11 +1,11 @@
 from django.urls import path
 
-from .views import import_items, get_updates, get_history, ItemAPIView
+from .views import ItemAPIView, get_history, get_updates
 
 app_name = 'api'
 
 urlpatterns = [
-    path('imports', import_items, name='import_items'),
+    path('imports', ItemAPIView.as_view(), name='import_items'),
     path('delete/<slug:uuid>', ItemAPIView.as_view(), name='delete_item'),
     path('nodes/<slug:uuid>', ItemAPIView.as_view(), name='get_item'),
     path('updates', get_updates, name='get_updates'),
