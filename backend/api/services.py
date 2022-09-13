@@ -53,23 +53,20 @@ def update_dates(affected_folders_ids, date):
 
 
 def update_sizes():
-    def traverse_and_update(item, file_count=0, sum_size=0):
+    def traverse_and_update(item, sum_size=0):
         if item.type == FILE:
-            size = item.size
-            return size, 1
+            return item.size
         else:
-            children = item.item_set.all()
+            children = item.children.all()
             if children:
                 for child in children:
-                    volume, files = traverse_and_update(child)
-                    sum_size += volume
-                    file_count += files
+                    sum_size += traverse_and_update(child)
                 item.size = sum_size
                 item.save()
             else:
                 item.size = None
                 item.save()
-            return sum_size, file_count
+            return sum_size
 
     root_items = Item.objects.filter(parent=None)
 

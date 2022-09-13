@@ -1,17 +1,15 @@
 from rest_framework.exceptions import ValidationError
-from rest_framework.fields import DateTimeField, ListField
+from rest_framework.fields import DateTimeField
 from rest_framework.relations import PrimaryKeyRelatedField
 from rest_framework.serializers import (
     CharField, ChoiceField, IntegerField, ModelSerializer, Serializer,
     SerializerMethodField, UUIDField
 )
 
-from .models import CHOICES, FILE, History, Item
-from .services import get_or_none
-from .validators import validate_uuid
+from .models import CHOICES, FILE, FOLDER, History, Item
 
 
-class ItemSerializer(ModelSerializer):
+class ItemGetSerializer(ModelSerializer):
     parentId = PrimaryKeyRelatedField(
         source='parent',
         queryset=Item.objects.all(),
@@ -24,55 +22,64 @@ class ItemSerializer(ModelSerializer):
         model = Item
         exclude = ('parent',)
 
+    def get_children(self, obj):
+        if obj.type == FILE:
+            return None
+        return self.__class__(obj.children.all(), many=True).data
+
+
+class ItemPostSerializer(ModelSerializer):
+    parentId = UUIDField(default=None, allow_null=True)
+    url = CharField(default=None, required=False)
+    size = IntegerField(default=None, required=False)
+    type = ChoiceField(choices=CHOICES)
+
+    class Meta:
+        model = Item
+        exclude = ('date', 'parent')
+
     def validate_url(self, url):
         if url is None:
             return None
         if url[0] != '/':
-            raise ValidationError('Url must start with slash')
+            raise ValidationError('Url должен начинаться с прямого слэша')
         return url
 
-    def validate(self, data):
-        try:
-            if data.get('type') == FILE:
-                size = data.get('size')
-                assert isinstance(size, int) and size >= 0
-            else:
-                assert 'size' not in data
-        except AssertionError:
-            raise ValidationError('Invalid size')
-        return data
-
-    def get_children(self, obj):
-        if obj.type == FILE:
+    def validate_size(self, size):
+        if size is None:
             return None
-        return self.__class__(obj.histories.all(), many=True).data
+        if int(size) < 0:
+            raise ValidationError('Недопустимое значение размера')
+        return size
+
+    def validate(self, data):
+        if data.get('type') == FOLDER and data.get('size'):
+            raise ValidationError('У папки не может быть размера')
+        return data
 
 
 class ItemRequest:
     def __init__(self, items, updateDate):
-        self.items = updateDate
         self.items = items
+        self.updateDate = updateDate
 
 
-class ItemImportRequestSerializer(Serializer):
-    items = ListField(allow_null=True)
+class ItemRequestImportSerializer(Serializer):
+    items = ItemPostSerializer(many=True)
     updateDate = DateTimeField()
 
     def create(self, validated_data):
         instance = ItemRequest(**validated_data)
         items = validated_data.get('items')
         for item in items:
-            uuid = validate_uuid(item.get('id'))
-            unit = get_or_none(Item, pk=uuid)
             item['date'] = validated_data['updateDate']
-
-            if unit:
-                item_serializer = ItemSerializer(unit, data=item)
-            else:
-                item_serializer = ItemSerializer(data=item)
-            if not item_serializer.is_valid():
-                raise ValidationError(item_serializer.errors)
-            item_serializer.save()
+            parentId = item.pop('parentId')
+            if parentId is not None:
+                try:
+                    item['parent'] = Item.objects.get(pk=parentId)
+                except Item.DoesNotExist:
+                    raise ValidationError('Отсутствует родитель с таким id')
+            Item.objects.update_or_create(**item)
         return instance
 
 

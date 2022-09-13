@@ -8,7 +8,7 @@ from rest_framework.views import APIView
 
 from .models import Item
 from .serializers import (
-    HistorySerializer, ItemImportRequestSerializer, ItemSerializer
+    HistorySerializer, ItemRequestImportSerializer, ItemGetSerializer
 )
 from .services import (
     get_date_range, get_datetime_object, get_update_data, save_history,
@@ -27,7 +27,7 @@ class ItemAPIView(APIView):
                 status=HTTP_400_BAD_REQUEST,
             )
         item = get_object_or_404(Item, pk=uuid)
-        serializer = ItemSerializer(item)
+        serializer = ItemGetSerializer(item)
         return Response(serializer.data)
 
     @transaction.atomic
@@ -44,16 +44,15 @@ class ItemAPIView(APIView):
         return Response({'code': HTTP_200_OK, 'message': 'Deleted'})
 
     def post(self, request):
-        serializer = ItemImportRequestSerializer(data=request.data)
-        if not serializer.is_valid():
-            return Response(serializer.errors, status=HTTP_400_BAD_REQUEST)
+        serializer = ItemRequestImportSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
         serializer.save()
 
         update_date = request.data.get('updateDate')
         items = request.data.get('items')
         affected_folders_ids, updated_or_added_ids = get_update_data(items)
 
-        update_dates(affected_folders_ids, update_date)
+        # update_dates(affected_folders_ids, update_date)
         update_sizes()
         for item_id in updated_or_added_ids:
             save_history(item_id)
@@ -78,7 +77,7 @@ def get_updates(request):
         )
     date_range = get_date_range(request_date)
     queryset = Item.objects.filter(date__range=date_range).filter(type='FILE')
-    serializer = ItemSerializer(queryset, many=True)
+    serializer = ItemGetSerializer(queryset, many=True)
     return Response({'items': serializer.data})
 
 
