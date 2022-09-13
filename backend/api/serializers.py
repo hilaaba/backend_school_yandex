@@ -7,9 +7,10 @@ from rest_framework.serializers import (
 )
 
 from .models import CHOICES, FILE, FOLDER, History, Item
+from .services import get_object_or_none
 
 
-class ItemGetSerializer(ModelSerializer):
+class ItemSerializer(ModelSerializer):
     parentId = PrimaryKeyRelatedField(
         source='parent',
         queryset=Item.objects.all(),
@@ -28,7 +29,8 @@ class ItemGetSerializer(ModelSerializer):
         return self.__class__(obj.children.all(), many=True).data
 
 
-class ItemPostSerializer(ModelSerializer):
+class ItemImportSerializer(ModelSerializer):
+    id = UUIDField()
     parentId = UUIDField(default=None, allow_null=True)
     url = CharField(default=None, required=False)
     size = IntegerField(default=None, required=False)
@@ -40,21 +42,23 @@ class ItemPostSerializer(ModelSerializer):
 
     def validate_url(self, url):
         if url is None:
-            return None
+            return url
         if url[0] != '/':
             raise ValidationError('Url должен начинаться с прямого слэша')
         return url
 
     def validate_size(self, size):
         if size is None:
-            return None
-        if int(size) < 0:
+            return size
+        if int(size) <= 0:
             raise ValidationError('Недопустимое значение размера')
         return size
 
     def validate(self, data):
         if data.get('type') == FOLDER and data.get('size'):
             raise ValidationError('У папки не может быть размера')
+        if data.get('url') == FOLDER and data.get('url'):
+            raise ValidationError('У папки не может быть url')
         return data
 
 
@@ -65,26 +69,53 @@ class ItemRequest:
 
 
 class ItemRequestImportSerializer(Serializer):
-    items = ItemPostSerializer(many=True)
+    items = ItemImportSerializer(many=True)
     updateDate = DateTimeField()
+
+    def validate_items(self, items):
+        ids = set()
+        for item in items:
+            item_id = item.get('id')
+            if item_id in ids:
+                raise ValidationError('В запросе id не должны повторяться')
+            ids.add(item_id)
+        return items
 
     def create(self, validated_data):
         instance = ItemRequest(**validated_data)
         items = validated_data.get('items')
         for item in items:
             item['date'] = validated_data['updateDate']
-            parentId = item.pop('parentId')
-            if parentId is not None:
+            parent_id = item.pop('parentId')
+            if parent_id:
                 try:
-                    item['parent'] = Item.objects.get(pk=parentId)
-                except Item.DoesNotExist:
+                    item['parent'] = Item.objects.get(pk=parent_id)
+                    if item['parent'].type == FILE:
+                        raise ValueError
+                except (Item.DoesNotExist, ValueError):
                     raise ValidationError('Отсутствует родитель с таким id')
-            Item.objects.update_or_create(**item)
+            unit = get_object_or_none(Item, pk=item.get('id'))
+            if unit:
+                History.objects.create(
+                    url=unit.url,
+                    type=unit.type,
+                    date=unit.date,
+                    size=unit.size,
+                    parentId=unit.parent.id,
+                    item=unit,
+                )
+                unit.url = item.url if item.get('url') else None
+                unit.type = item.type
+                unit.date = item.date
+                unit.size = item.size if item.get('size') else None
+                unit.parent = item.parent if item.get('parent') else None
+                unit.save()
+            else:
+                Item.objects.create(**item)
         return instance
 
 
 class HistorySerializer(ModelSerializer):
-    type = CharField(default=FILE)
 
     class Meta:
         model = History

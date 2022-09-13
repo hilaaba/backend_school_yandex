@@ -10,10 +10,10 @@ CHOICES = (
 
 
 class Item(models.Model):
-    id = models.UUIDField(primary_key=True)
+    id = models.UUIDField(primary_key=True, unique=True)
     type = models.CharField(max_length=6, choices=CHOICES, verbose_name='Тип')
     date = models.DateTimeField(verbose_name='Дата')
-    url = models.TextField(null=True, verbose_name='Адрес')
+    url = models.CharField(max_length=255, null=True, verbose_name='Адрес')
     size = models.PositiveIntegerField(null=True, verbose_name='Размер')
     parent = models.ForeignKey(
         'self',
@@ -32,13 +32,14 @@ class Item(models.Model):
 
 
 class History(models.Model):
+    type = models.CharField(max_length=6, choices=CHOICES)
     date = models.DateTimeField(verbose_name='Дата')
-    url = models.TextField(null=True, verbose_name='Адрес')
+    url = models.CharField(max_length=255, null=True, verbose_name='Адрес')
     size = models.PositiveIntegerField(null=True, verbose_name='Размер')
     parentId = models.UUIDField(null=True)
     item = models.ForeignKey(
         Item,
-        related_name='histories',
+        related_name='history',
         on_delete=models.CASCADE,
         verbose_name='Элемент',
     )

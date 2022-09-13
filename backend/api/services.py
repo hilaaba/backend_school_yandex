@@ -1,11 +1,25 @@
 from datetime import datetime, timedelta
+from rest_framework.response import Response
+from rest_framework.status import HTTP_200_OK, HTTP_400_BAD_REQUEST, HTTP_404_NOT_FOUND
 
 from django.conf import settings
 
-from .models import History, Item, FILE
+from .models import Item, FILE, History
+
+RESPONSE_VALIDATION_ERROR = Response(
+    {'code': HTTP_400_BAD_REQUEST, 'message': 'Validation Failed'},
+    status=HTTP_400_BAD_REQUEST,
+)
+
+RESPONSE_ITEM_NOT_FOUND = Response(
+    {'code': HTTP_404_NOT_FOUND, 'message': 'Item not found'},
+    status=HTTP_404_NOT_FOUND,
+)
+
+RESPONSE_OK = Response(status=HTTP_200_OK)
 
 
-def get_or_none(model, *args, **kwargs):
+def get_object_or_none(model, *args, **kwargs):
     try:
         return model.objects.get(*args, **kwargs)
     except model.DoesNotExist:
@@ -69,20 +83,25 @@ def update_sizes():
             return sum_size
 
     root_items = Item.objects.filter(parent=None)
-
     for root_item in root_items:
         traverse_and_update(root_item)
 
 
 def save_history(item_id):
     item = Item.objects.get(pk=item_id)
-    if item.type == FILE:
-        values = {
-            'url': item.url,
-            'date': item.date,
-            'size': item.size,
-            'parentId': item.parent.id if item.parent else None,
-            'item': item,
-        }
-        obj = History(**values)
-        obj.save()
+    History.objects.create(
+        url=item.url,
+        date=item.date,
+        parentId=item.parent.id,
+        item=item,
+        type=item.type,
+    )
+    # if item.type == 'OFFER':
+    #     values = {'name': item.name,
+    #               'date': item.date,
+    #               'price': item.price,
+    #               'parentId': item.parent.id if item.parent else None,
+    #               'unit': item,
+    #               }
+    #     obj = History(**values)
+    #     obj.save()
