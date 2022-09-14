@@ -6,15 +6,17 @@ from rest_framework.serializers import (
     SerializerMethodField, UUIDField
 )
 
-from .models import CHOICES, FILE, FOLDER, History, Item
+from items.models import CHOICES, FILE, FOLDER, History, Item
 from .services import get_object_or_none, update_unit
 
 
 class ItemSerializer(ModelSerializer):
+    """
+    Сериализатор модели Item для GET запроса.
+    """
     parentId = PrimaryKeyRelatedField(
         source='parent',
         queryset=Item.objects.all(),
-        allow_null=True,
     )
     children = SerializerMethodField(read_only=True)
     type = ChoiceField(choices=CHOICES)
@@ -30,8 +32,11 @@ class ItemSerializer(ModelSerializer):
 
 
 class ItemImportSerializer(ModelSerializer):
+    """
+    Сериализатор модели Item для POST запроса.
+    """
     id = UUIDField()
-    parentId = UUIDField(default=None, allow_null=True)
+    parentId = UUIDField(source='parent', default=None, allow_null=True)
     url = CharField(default=None, required=False)
     size = IntegerField(default=None, required=False)
     type = ChoiceField(choices=CHOICES)
@@ -57,12 +62,16 @@ class ItemImportSerializer(ModelSerializer):
     def validate(self, data):
         if data.get('type') == FILE and data.get('size') is None:
             raise ValidationError('У файла должен быть размер')
-        if data.get('type') == FILE and data.get('parentId') is None:
-            raise ValidationError('У файла должна быть родительная папка')
+
+        if data.get('type') == FILE and data.get('parent') is None:
+            raise ValidationError('У файла должна быть родительская папка')
+
         if data.get('type') == FOLDER and data.get('size'):
             raise ValidationError('У папки не может быть размера')
+
         if data.get('url') == FOLDER and data.get('url'):
             raise ValidationError('У папки не может быть url')
+
         if data.get('id') == data.get('parentId'):
             raise ValidationError(
                 'Элемент не может быть родителем самого себя'
@@ -71,12 +80,18 @@ class ItemImportSerializer(ModelSerializer):
 
 
 class ItemRequest:
+    """
+    Вспомогательный класс для сериализатора ItemRequestImportSerializer.
+    """
     def __init__(self, items, updateDate):
         self.items = items
         self.updateDate = updateDate
 
 
 class ItemRequestImportSerializer(Serializer):
+    """
+    Сериализатор для POST запроса на эндпоинт /imports.
+    """
     items = ItemImportSerializer(many=True)
     updateDate = DateTimeField()
 
@@ -85,7 +100,9 @@ class ItemRequestImportSerializer(Serializer):
         for item in items:
             item_id = item.get('id')
             if item_id in ids:
-                raise ValidationError('В запросе id не должны повторяться')
+                raise ValidationError(
+                    'В запросе id элементов не должны повторяться'
+                )
             ids.add(item_id)
         return items
 
@@ -94,16 +111,18 @@ class ItemRequestImportSerializer(Serializer):
         items = validated_data.get('items')
         for item in items:
             item['date'] = validated_data['updateDate']
-            parent_id = item.pop('parentId')
+            parent_id = item.get('parent')
             if parent_id:
                 try:
                     item['parent'] = Item.objects.get(pk=parent_id)
                     if item['parent'].type == FILE:
-                        raise ValueError
+                        raise ValueError('Родителем может быть только папка')
                 except (Item.DoesNotExist, ValueError):
                     raise ValidationError('Отсутствует родитель с таким id')
             unit = get_object_or_none(Item, pk=item.get('id'))
             if unit:
+                if unit.type != item.get('type'):
+                    raise ValidationError('Элемент не может менять тип')
                 update_unit(unit, item)
             else:
                 Item.objects.create(**item)
@@ -111,7 +130,12 @@ class ItemRequestImportSerializer(Serializer):
 
 
 class HistorySerializer(ModelSerializer):
+    """
+    Сериализатор модели History.
+    """
+    id = PrimaryKeyRelatedField(source='item', queryset=Item.objects.all())
+    parentId = UUIDField(source='parent_id')
 
     class Meta:
         model = History
-        exclude = ('id',)
+        exclude = ('parent_id', 'item')

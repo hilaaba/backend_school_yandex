@@ -8,7 +8,7 @@ class ItemAdmin(admin.ModelAdmin):
 
 
 class HistoryAdmin(admin.ModelAdmin):
-    list_display = ('item', 'url', 'size', 'parentId', 'date')
+    list_display = ('item', 'url', 'size', 'parent_id', 'date')
 
 
 admin.site.register(Item, ItemAdmin)

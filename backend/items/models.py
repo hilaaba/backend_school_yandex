@@ -10,6 +10,9 @@ CHOICES = (
 
 
 class Item(models.Model):
+    """
+    Модель элементов (файлов и папок).
+    """
     id = models.UUIDField(primary_key=True, unique=True)
     type = models.CharField(max_length=6, choices=CHOICES, verbose_name='Тип')
     date = models.DateTimeField(verbose_name='Дата')
@@ -32,11 +35,14 @@ class Item(models.Model):
 
 
 class History(models.Model):
+    """
+    Сохранение истории обновленного элемента.
+    """
     type = models.CharField(max_length=6, choices=CHOICES)
     date = models.DateTimeField(verbose_name='Дата')
     url = models.CharField(max_length=255, null=True, verbose_name='Адрес')
     size = models.PositiveIntegerField(null=True, verbose_name='Размер')
-    parentId = models.UUIDField(null=True)
+    parent_id = models.UUIDField(null=True)
     item = models.ForeignKey(
         Item,
         related_name='history',
@@ -53,5 +59,5 @@ class History(models.Model):
             f'url: {self.url}, '
             f'date: {self.date}, '
             f'size: {self.size}, '
-            f'parentId: {self.parentId}'
+            f'parentId: {self.parent_id}'
         )

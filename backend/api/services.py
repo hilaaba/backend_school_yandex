@@ -8,7 +8,7 @@ from rest_framework.status import (
     HTTP_200_OK, HTTP_400_BAD_REQUEST, HTTP_404_NOT_FOUND
 )
 
-from .models import FILE, History, Item
+from items.models import FILE, History, Item
 
 RESPONSE_VALIDATION_ERROR = Response(
     {'code': HTTP_400_BAD_REQUEST, 'message': 'Validation Failed'},
@@ -24,6 +24,9 @@ RESPONSE_OK = Response(status=HTTP_200_OK)
 
 
 def get_object_or_none(model, *args, **kwargs):
+    """
+    Возвращает объект модели или None.
+    """
     try:
         return model.objects.get(*args, **kwargs)
     except model.DoesNotExist:
@@ -31,6 +34,9 @@ def get_object_or_none(model, *args, **kwargs):
 
 
 def get_datetime_object(date_str):
+    """
+    Проверяет на валидность дату и возвращает объект datetime.
+    """
     try:
         return datetime.strptime(date_str, settings.DATE_TIME_FORMAT)
     except ValueError:
@@ -38,11 +44,17 @@ def get_datetime_object(date_str):
 
 
 def get_date_range(range_end):
+    """
+    Возвращает интервал времени 24ч.
+    """
     range_start = range_end - timedelta(days=1)
     return range_start, range_end
 
 
 def get_uuid(uuid, version=4):
+    """
+    Проверяет на валидность uuid и возвращает объект UUID.
+    """
     try:
         return UUID(uuid, version=version)
     except ValueError:
@@ -50,8 +62,11 @@ def get_uuid(uuid, version=4):
 
 
 def update_folders_date(items, date):
+    """
+    Функция рекурсивно обновляет дату папок, у которых
+    добавились (обновились) дочерние файлы (папки).
+    """
     folders_ids = {item['parent'].id for item in items if item.get('parent')}
-    print(folders_ids)
     updated = set()
 
     def update_date(folder):
@@ -71,14 +86,18 @@ def update_folders_date(items, date):
 
 
 def update_sizes():
-    def traverse_and_update(item, sum_size=0):
+    """
+    Функция рекурсивно обновляет размер папок, у которых
+    добавились или обновились файлы.
+    """
+    def update_size(item, sum_size=0):
         if item.type == FILE:
             return item.size
         else:
             children = item.children.all()
             if children:
                 for child in children:
-                    sum_size += traverse_and_update(child)
+                    sum_size += update_size(child)
                 item.size = sum_size
                 item.save()
             else:
@@ -88,17 +107,20 @@ def update_sizes():
 
     root_items = Item.objects.filter(parent=None)
     for root_item in root_items:
-        traverse_and_update(root_item)
+        update_size(root_item)
 
 
 def save_updated_items_in_history(date):
+    """
+    Функция добавляет в историю элементы, у которых обновилась дата.
+    """
     updated_items = Item.objects.filter(date=date)
     History.objects.bulk_create(
         [History(
             url=item.url,
             type=item.type,
             date=item.date,
-            parentId=item.parent.id if item.parent else None,
+            parent_id=item.parent.id if item.parent else None,
             size=item.size,
             item=item
         ) for item in updated_items]
@@ -106,8 +128,9 @@ def save_updated_items_in_history(date):
 
 
 def update_unit(unit, item):
-    if unit.type != item.get('type'):
-        raise ValidationError('Элемент не может менять тип')
+    """
+    Функция обновляет данные объекта unit модели Item.
+    """
     unit.url = item.get('url')
     unit.date = item.get('date')
     unit.size = item.get('size')

@@ -5,7 +5,7 @@ from rest_framework.response import Response
 from rest_framework.status import HTTP_200_OK
 from rest_framework.views import APIView
 
-from .models import FILE, Item
+from items.models import FILE, Item
 from .serializers import (
     HistorySerializer, ItemRequestImportSerializer, ItemSerializer
 )
@@ -48,7 +48,7 @@ class ItemAPIView(APIView):
             return RESPONSE_VALIDATION_ERROR
         try:
             serializer.save()
-        except ValidationError:
+        except (ValidationError, Exception):
             return RESPONSE_VALIDATION_ERROR
         update_date = serializer.validated_data.get('updateDate')
         items = serializer.validated_data.get('items')
@@ -76,7 +76,7 @@ def get_history(request, uuid):
         uuid = get_uuid(uuid)
         date_start = get_datetime_object(request.GET.get('dateStart'))
         date_end = get_datetime_object(request.GET.get('dateEnd'))
-    except ValidationError:
+    except (ValidationError, Exception):
         return RESPONSE_VALIDATION_ERROR
     try:
         item = Item.objects.get(pk=uuid)
