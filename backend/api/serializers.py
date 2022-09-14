@@ -7,7 +7,7 @@ from rest_framework.serializers import (
 )
 
 from .models import CHOICES, FILE, FOLDER, History, Item
-from .services import get_object_or_none
+from .services import get_object_or_none, update_unit
 
 
 class ItemSerializer(ModelSerializer):
@@ -96,20 +96,7 @@ class ItemRequestImportSerializer(Serializer):
                     raise ValidationError('Отсутствует родитель с таким id')
             unit = get_object_or_none(Item, pk=item.get('id'))
             if unit:
-                History.objects.create(
-                    url=unit.url,
-                    type=unit.type,
-                    date=unit.date,
-                    size=unit.size,
-                    parentId=unit.parent.id,
-                    item=unit,
-                )
-                unit.url = item.url if item.get('url') else None
-                unit.type = item.type
-                unit.date = item.date
-                unit.size = item.size if item.get('size') else None
-                unit.parent = item.parent if item.get('parent') else None
-                unit.save()
+                update_unit(unit, item)
             else:
                 Item.objects.create(**item)
         return instance
@@ -119,4 +106,4 @@ class HistorySerializer(ModelSerializer):
 
     class Meta:
         model = History
-        fields = '__all__'
+        exclude = ('id',)

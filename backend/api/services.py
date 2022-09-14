@@ -1,10 +1,14 @@
 from datetime import datetime, timedelta
-from rest_framework.response import Response
-from rest_framework.status import HTTP_200_OK, HTTP_400_BAD_REQUEST, HTTP_404_NOT_FOUND
+from uuid import UUID
 
 from django.conf import settings
+from rest_framework.exceptions import ValidationError
+from rest_framework.response import Response
+from rest_framework.status import (
+    HTTP_200_OK, HTTP_400_BAD_REQUEST, HTTP_404_NOT_FOUND
+)
 
-from .models import Item, FILE, History
+from .models import FILE, History, Item
 
 RESPONSE_VALIDATION_ERROR = Response(
     {'code': HTTP_400_BAD_REQUEST, 'message': 'Validation Failed'},
@@ -26,44 +30,44 @@ def get_object_or_none(model, *args, **kwargs):
         return None
 
 
-def get_date_range(request_date):
-    range_end = datetime.strptime(request_date, settings.DATE_TIME_FORMAT)
-    range_start = range_end - timedelta(days=1)
-    return [range_start, range_end]
-
-
 def get_datetime_object(date_str):
-    return datetime.strptime(date_str, settings.DATE_TIME_FORMAT)
+    try:
+        return datetime.strptime(date_str, settings.DATE_TIME_FORMAT)
+    except ValueError:
+        raise ValidationError('Дата обрабатывается согласно ISO 8601')
 
 
-def get_update_data(items):
-    affected_folders_ids = set()
-    updated_or_added_ids = set()
-    for item in items:
-        if item.get('parentId') is not None:
-            affected_folders_ids.add(item['parentId'])
-        updated_or_added_ids.add(item['id'])
-    return affected_folders_ids, updated_or_added_ids
+def get_date_range(range_end):
+    range_start = range_end - timedelta(days=1)
+    return range_start, range_end
 
 
-def update_dates(affected_folders_ids, date):
-    def traverse_and_update(folder):
+def get_uuid(uuid, version=4):
+    try:
+        return UUID(uuid, version=version)
+    except ValueError:
+        raise ValidationError('Недопустимый UUID')
+
+
+def update_folders_date(items, date):
+    folders_ids = {item['parent'].id for item in items if item.get('parent')}
+    print(folders_ids)
+    updated = set()
+
+    def update_date(folder):
         if folder.parent and folder not in updated:
             updated.add(folder)
             folder.date = date
             folder.save()
-            folder = folder.parent
-            traverse_and_update(folder)
+            update_date(folder.parent)
         else:
             updated.add(folder)
             folder.date = date
             folder.save()
 
-    updated = set()
-    for folder_id in affected_folders_ids:
+    for folder_id in folders_ids:
         folder = Item.objects.get(pk=folder_id)
-        traverse_and_update(folder)
-    return None
+        update_date(folder)
 
 
 def update_sizes():
@@ -87,21 +91,25 @@ def update_sizes():
         traverse_and_update(root_item)
 
 
-def save_history(item_id):
-    item = Item.objects.get(pk=item_id)
-    History.objects.create(
-        url=item.url,
-        date=item.date,
-        parentId=item.parent.id,
-        item=item,
-        type=item.type,
+def save_updated_items_in_history(date):
+    updated_items = Item.objects.filter(date=date)
+    History.objects.bulk_create(
+        [History(
+            url=item.url,
+            type=item.type,
+            date=item.date,
+            parentId=item.parent.id if item.parent else None,
+            size=item.size,
+            item=item
+        ) for item in updated_items]
     )
-    # if item.type == 'OFFER':
-    #     values = {'name': item.name,
-    #               'date': item.date,
-    #               'price': item.price,
-    #               'parentId': item.parent.id if item.parent else None,
-    #               'unit': item,
-    #               }
-    #     obj = History(**values)
-    #     obj.save()
+
+
+def update_unit(unit, item):
+    if unit.type != item.get('type'):
+        raise ValidationError('Элемент не может менять тип')
+    unit.url = item.get('url')
+    unit.date = item.get('date')
+    unit.size = item.get('size')
+    unit.parent = item.get('parent')
+    unit.save()

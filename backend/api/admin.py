@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import Item, History
+from .models import History, Item
 
 
 class ItemAdmin(admin.ModelAdmin):
