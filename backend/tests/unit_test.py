@@ -196,11 +196,11 @@ def deep_sort_children(node):
 
 
 def print_diff(expected, response):
-    with open("expected.json", "w") as f:
+    with open("../../expected.json", "w") as f:
         json.dump(expected, f, indent=2, ensure_ascii=False, sort_keys=True)
         f.write("\n")
 
-    with open("response.json", "w") as f:
+    with open("../../response.json", "w") as f:
         json.dump(response, f, indent=2, ensure_ascii=False, sort_keys=True)
         f.write("\n")
 
