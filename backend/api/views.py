@@ -46,7 +46,10 @@ class ItemAPIView(APIView):
         serializer = ItemRequestImportSerializer(data=request.data)
         if not serializer.is_valid():
             return RESPONSE_VALIDATION_ERROR
-        serializer.save()
+        try:
+            serializer.save()
+        except ValidationError:
+            return RESPONSE_VALIDATION_ERROR
         update_date = serializer.validated_data.get('updateDate')
         items = serializer.validated_data.get('items')
         update_folders_date(items, update_date)

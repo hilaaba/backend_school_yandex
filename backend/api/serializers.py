@@ -55,10 +55,18 @@ class ItemImportSerializer(ModelSerializer):
         return size
 
     def validate(self, data):
+        if data.get('type') == FILE and data.get('size') is None:
+            raise ValidationError('У файла должен быть размер')
+        if data.get('type') == FILE and data.get('parentId') is None:
+            raise ValidationError('У файла должна быть родительная папка')
         if data.get('type') == FOLDER and data.get('size'):
             raise ValidationError('У папки не может быть размера')
         if data.get('url') == FOLDER and data.get('url'):
             raise ValidationError('У папки не может быть url')
+        if data.get('id') == data.get('parentId'):
+            raise ValidationError(
+                'Элемент не может быть родителем самого себя'
+            )
         return data
 
 
