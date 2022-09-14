@@ -2,13 +2,12 @@ from datetime import datetime, timedelta
 from uuid import UUID
 
 from django.conf import settings
+from items.models import FILE, History, Item
 from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 from rest_framework.status import (
     HTTP_200_OK, HTTP_400_BAD_REQUEST, HTTP_404_NOT_FOUND
 )
-
-from items.models import FILE, History, Item
 
 RESPONSE_VALIDATION_ERROR = Response(
     {'code': HTTP_400_BAD_REQUEST, 'message': 'Validation Failed'},
@@ -45,8 +44,9 @@ def get_datetime_object(date_str):
 
 def get_date_range(range_end):
     """
-    Возвращает интервал времени 24ч.
+    Возвращает интервал времени 24 ч.
     """
+    range_end = get_datetime_object(range_end)
     range_start = range_end - timedelta(days=1)
     return range_start, range_end
 

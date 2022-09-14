@@ -1,3 +1,4 @@
+from items.models import CHOICES, FILE, FOLDER, History, Item
 from rest_framework.exceptions import ValidationError
 from rest_framework.fields import DateTimeField
 from rest_framework.relations import PrimaryKeyRelatedField
@@ -6,7 +7,6 @@ from rest_framework.serializers import (
     SerializerMethodField, UUIDField
 )
 
-from items.models import CHOICES, FILE, FOLDER, History, Item
 from .services import get_object_or_none, update_unit
 
 
