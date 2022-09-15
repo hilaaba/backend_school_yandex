@@ -50,6 +50,9 @@ class ItemImportTests(APITestCase):
         }
 
     def test_import(self):
+        """
+        Импорт валидных данных.
+        """
         for batch in IMPORT_BATCHES:
             with self.subTest(data=batch):
                 response = self.client.post(
@@ -61,6 +64,9 @@ class ItemImportTests(APITestCase):
                 self.assertEqual(response.data, None)
 
     def test_invalid_id(self):
+        """
+        Проверка валидации id.
+        """
         self.invalid_id = '123'
         self.parent_data['items'][0]['id'] = self.invalid_id
         response = self.client.post(
@@ -72,6 +78,10 @@ class ItemImportTests(APITestCase):
         self.assertEqual(response.data, RESPONSE_VALIDATION_ERROR)
 
     def test_duplicate_id_in_one_request(self):
+        """
+        Проверка на то, что в запросе не может быть двух элементов
+        с одинаковым id.
+        """
         self.item_duplicate_id = {
             "type": "FOLDER",
             "id": self.parent_data['items'][0]['id'],
@@ -87,6 +97,9 @@ class ItemImportTests(APITestCase):
         self.assertEqual(response.data, RESPONSE_VALIDATION_ERROR)
 
     def test_invalid_type(self):
+        """
+        Проверка валидации type.
+        """
         self.invalid_type = '123'
         self.parent_data['items'][0]['id'] = self.invalid_type
         response = self.client.post(
@@ -98,6 +111,9 @@ class ItemImportTests(APITestCase):
         self.assertEqual(response.data, RESPONSE_VALIDATION_ERROR)
 
     def test_invalid_parent_id(self):
+        """
+        Проверка валидации parentId.
+        """
         self.invalid_parent_id = '123'
         self.parent_data['items'][0]['parentId'] = self.invalid_parent_id
         response = self.client.post(
@@ -109,6 +125,10 @@ class ItemImportTests(APITestCase):
         self.assertEqual(response.data, RESPONSE_VALIDATION_ERROR)
 
     def test_parent_id_not_exist(self):
+        """
+        Проверка на не существующего родителя.
+        Выполняется POST-запрос только ребенка.
+        """
         response = self.client.post(
             self.url,
             data=self.children_data,
@@ -118,6 +138,9 @@ class ItemImportTests(APITestCase):
         self.assertEqual(response.data, RESPONSE_VALIDATION_ERROR)
 
     def test_import_where_parent_is_file(self):
+        """
+        Проверка на то, что файл не может быть родителем.
+        """
         for item in (self.parent_data, self.children_data):
             self.client.post(
                 self.url,
@@ -143,6 +166,9 @@ class ItemImportTests(APITestCase):
         self.assertEqual(response.data, RESPONSE_VALIDATION_ERROR)
 
     def test_invalid_folder_size(self):
+        """
+        Проверка на то, что у папки не может быть размера при импорте.
+        """
         self.parent_data['items'][0]['size'] = 234
         response = self.client.post(
             self.url,
@@ -154,6 +180,9 @@ class ItemImportTests(APITestCase):
         pass
 
     def test_invalid_file_size(self):
+        """
+        Проверка валидации размера у файла.
+        """
         self.client.post(
             self.url,
             data=self.parent_data,
@@ -170,6 +199,9 @@ class ItemImportTests(APITestCase):
         self.assertEqual(response.data, RESPONSE_VALIDATION_ERROR)
 
     def test_folder_not_exist_url(self):
+        """
+        Проверка на то, что у папки не может быть url.
+        """
         self.parent_data['items'][0]['url'] = '/url/2'
         response = self.client.post(
             self.url,
@@ -180,6 +212,9 @@ class ItemImportTests(APITestCase):
         self.assertEqual(response.data, RESPONSE_VALIDATION_ERROR)
 
     def test_file_invalid_url(self):
+        """
+        Проверка на то, что url может начинаться только с прямого слэша.
+        """
         self.client.post(
             self.url,
             data=self.parent_data,
@@ -196,6 +231,9 @@ class ItemImportTests(APITestCase):
         self.assertEqual(response.data, RESPONSE_VALIDATION_ERROR)
 
     def test_invalid_date(self):
+        """
+        Проверка валидации даты.
+        """
         invalid_date = '234'
         self.parent_data['updateDate'] = invalid_date
         response = self.client.post(
@@ -226,6 +264,9 @@ class ItemGetDeleteTests(APITestCase):
                 )
 
     def test_get_excepted_tree(self):
+        """
+        Проверка правильного вывода родителя.
+        """
         response = self.client.get(self.url_get_item)
         self.assertEqual(response.status_code, HTTP_200_OK)
         answer = json.loads(response.content)
@@ -234,6 +275,9 @@ class ItemGetDeleteTests(APITestCase):
         self.assertEqual(answer, EXPECTED_TREE)
 
     def test_delete_item(self):
+        """
+        Проверка удаления элемента из БД. Также удаляется все дети и истории.
+        """
         response = self.client.delete(self.url_delete_item)
         self.assertEqual(response.status_code, HTTP_200_OK)
         self.assertEqual(Item.objects.filter(pk=self.uuid).count(), 0)
@@ -241,6 +285,9 @@ class ItemGetDeleteTests(APITestCase):
         self.assertEqual(History.objects.all().count(), 0)
 
     def test_get_invalid_uuid(self):
+        """
+        Проверка валидации uuid при GET запросе.
+        """
         invalid_uuid = '123'
         url = reverse('api:get_item', kwargs={'uuid': invalid_uuid})
         response = self.client.get(url)
@@ -248,6 +295,9 @@ class ItemGetDeleteTests(APITestCase):
         self.assertEqual(response.data, RESPONSE_VALIDATION_ERROR)
 
     def test_delete_invalid_uuid(self):
+        """
+        Проверка валидации uuid при DELETE запросе.
+        """
         invalid_uuid = '123'
         url = reverse('api:delete_item', kwargs={'uuid': invalid_uuid})
         response = self.client.delete(url)
@@ -267,6 +317,9 @@ class ItemUpdatesTests(APITestCase):
                 )
 
     def test_invalid_date(self):
+        """
+        Проверка валидации даты.
+        """
         invalid_date = '123'
         url = f'/updates?date={invalid_date}'
         response = self.client.get(url)
@@ -274,6 +327,9 @@ class ItemUpdatesTests(APITestCase):
         self.assertEqual(response.data, RESPONSE_VALIDATION_ERROR)
 
     def test_updated_parent_folder_date(self):
+        """
+        Проверка на обновление дат всех родителей элемента.
+        """
         date_folder_before_update = IMPORT_BATCHES[0]['updateDate']
         uuid = IMPORT_BATCHES[0]['items'][0]['id']
         for batch in IMPORT_BATCHES:
@@ -312,6 +368,9 @@ class HistoryTests(APITestCase):
         self.invalid_date = '123'
 
     def test_invalid_date_start(self):
+        """
+        Проверка валидации dateStart.
+        """
         url = (
             f'/node/{self.uuid}/history?dateStart={self.invalid_date}&'
             f'dateEnd={self.date_end}'
@@ -321,6 +380,9 @@ class HistoryTests(APITestCase):
         self.assertEqual(response.data, RESPONSE_VALIDATION_ERROR)
 
     def test_invalid_date_end(self):
+        """
+        Проверка валидации dateEnd.
+        """
         url = (
             f'/node/{self.uuid}/history?dateStart={self.date_start}&'
             f'dateEnd={self.invalid_date}'
@@ -330,6 +392,9 @@ class HistoryTests(APITestCase):
         self.assertEqual(response.data, RESPONSE_VALIDATION_ERROR)
 
     def test_history(self):
+        """
+        Проверка правильного вывода истории элемента.
+        """
         excepted_response = {
             'items':
                 [
