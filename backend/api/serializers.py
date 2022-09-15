@@ -37,7 +37,7 @@ class ItemImportSerializer(ModelSerializer):
     """
     id = UUIDField()
     parentId = UUIDField(source='parent', default=None, allow_null=True)
-    url = CharField(default=None, required=False)
+    url = CharField(max_length=255, default=None, required=False)
     size = IntegerField(default=None, required=False)
     type = ChoiceField(choices=CHOICES)
 
@@ -69,7 +69,7 @@ class ItemImportSerializer(ModelSerializer):
         if data.get('type') == FOLDER and data.get('size'):
             raise ValidationError('У папки не может быть размера')
 
-        if data.get('url') == FOLDER and data.get('url'):
+        if data.get('type') == FOLDER and data.get('url'):
             raise ValidationError('У папки не может быть url')
 
         if data.get('id') == data.get('parentId'):
