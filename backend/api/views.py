@@ -75,11 +75,13 @@ def get_updates(request):
 
 @api_view(['GET'])
 def get_history(request, uuid):
+    date_start = request.GET.get('dateStart')
+    date_end = request.GET.get('dateEnd')
     try:
-        uuid = get_uuid(uuid)
-        date_start = get_datetime_object(request.GET.get('dateStart'))
-        date_end = get_datetime_object(request.GET.get('dateEnd'))
-    except (ValidationError, Exception):
+        validate_uuid(uuid)
+        validate_date(request.GET.get('dateStart'))
+        validate_date(request.GET.get('dateEnd'))
+    except ValidationError:
         return RESPONSE_VALIDATION_ERROR
     try:
         item = Item.objects.get(pk=uuid)

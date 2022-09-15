@@ -296,6 +296,12 @@ class HistoryTests(APITestCase):
     def setUp(self):
         super().setUp()
         self.uuid = '069cb8d7-bbdd-47d3-ad8f-82ef4c269df1'
+        self.date_start = '2022-02-01T00:00:00Z'
+        self.date_end = '2022-02-03T15:00:00Z'
+        self.url = (
+            f'/node/{self.uuid}/history?dateStart={self.date_start}&'
+            f'dateEnd={self.date_end}'
+        )
         for batch in IMPORT_BATCHES:
             with self.subTest(data=batch):
                 self.client.post(
@@ -303,12 +309,21 @@ class HistoryTests(APITestCase):
                     data=batch,
                     format='json',
                 )
-
-    def test_invalid_date(self):
         self.invalid_date = '123'
+
+    def test_invalid_date_start(self):
         url = (
             f'/node/{self.uuid}/history?dateStart={self.invalid_date}&'
-            f'dateEnd=2022-02-03T00:00:00Z'
+            f'dateEnd={self.date_end}'
+        )
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data, RESPONSE_VALIDATION_ERROR)
+
+    def test_invalid_date_end(self):
+        url = (
+            f'/node/{self.uuid}/history?dateStart={self.date_start}&'
+            f'dateEnd={self.invalid_date}'
         )
         response = self.client.get(url)
         self.assertEqual(response.status_code, HTTP_400_BAD_REQUEST)
@@ -352,12 +367,6 @@ class HistoryTests(APITestCase):
                     },
                 ],
         }
-        self.date_start = '2022-02-01T00:00:00Z'
-        self.date_end = '2022-02-03T15:00:00Z'
-        url = (
-            f'/node/{self.uuid}/history?dateStart={self.date_start}&'
-            f'dateEnd={self.date_end}'
-        )
-        response = self.client.get(url)
+        response = self.client.get(self.url)
         answer = json.loads(response.content)
         self.assertEqual(answer, excepted_response)
